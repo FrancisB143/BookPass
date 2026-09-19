@@ -1,13 +1,14 @@
 /**
  * Who is signed in.
  *
- * Placeholder authentication: any well-formed email is accepted and the
- * "session" lives in memory only. Replacing this with real auth means changing
- * `signIn`/`signOut` and nothing that consumes them.
+ * Placeholder authentication: any well-formed email signs you in as the seeded
+ * member. Replacing this with real auth means changing `signIn`/`signOut` and
+ * nothing that consumes them.
  */
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import { CURRENT_USER_ID, USERS } from '@/data/seed';
 import type { User } from '@/types';
 
 type SessionValue = {
@@ -18,36 +19,19 @@ type SessionValue = {
 
 const SessionContext = createContext<SessionValue | null>(null);
 
-/** Turns "juan.dela.cruz@uic.edu.ph" into "Juan Dela Cruz". */
-function displayNameFromEmail(email: string): string {
-  const localPart = email.split('@')[0] ?? email;
-  const words = localPart.split(/[._-]+/).filter(Boolean);
-  if (words.length === 0) {
-    return 'Library Member';
-  }
-  return words.map((word) => word[0].toUpperCase() + word.slice(1).toLowerCase()).join(' ');
-}
+const SEEDED_USER = USERS.find((user) => user.id === CURRENT_USER_ID) ?? USERS[0];
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   const signIn = useCallback(async (email: string) => {
-    const trimmed = email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       throw new Error('Enter a valid email address.');
     }
-
-    setUser({
-      id: 'current-user',
-      name: displayNameFromEmail(trimmed),
-      email: trimmed,
-      cardNumber: 'BP-2026-0148',
-    });
+    setUser(SEEDED_USER);
   }, []);
 
-  const signOut = useCallback(() => {
-    setUser(null);
-  }, []);
+  const signOut = useCallback(() => setUser(null), []);
 
   const value = useMemo(() => ({ user, signIn, signOut }), [user, signIn, signOut]);
 

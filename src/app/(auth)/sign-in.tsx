@@ -1,33 +1,34 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
+import { Field, Segmented } from '@/components/ui/field';
+import { Button } from '@/components/ui/button';
+import { Card, IconTile } from '@/components/ui/surface';
+import { Pill } from '@/components/ui/pill';
+import { Text } from '@/components/ui/text';
+import { Spacing } from '@/constants/theme';
 import { useSession } from '@/context/session-context';
-import { useTheme } from '@/hooks/use-theme';
 
-/**
- * Placeholder sign-in. Any well-formed email works and the password is ignored
- * — the point is that the navigation shape is right when real auth lands.
- */
+type Mode = 'sign-in' | 'register';
+
+/** Placeholder sign-in — any well-formed email is accepted. */
 export default function SignInScreen() {
-  const theme = useTheme();
   const { signIn } = useSession();
 
+  const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function handleSignIn() {
+  async function handleSubmit() {
     setBusy(true);
     setError(null);
     try {
       await signIn(email);
-      router.replace('/browse');
+      router.replace('/home');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not sign in.');
     } finally {
@@ -35,59 +36,67 @@ export default function SignInScreen() {
     }
   }
 
-  const inputStyle = [
-    styles.input,
-    { backgroundColor: theme.backgroundElement, borderColor: theme.border, color: theme.text },
-  ];
-
   return (
     <Screen safe>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.fill}>
-        <View style={styles.content}>
-          <ThemedText style={styles.logo}>📚</ThemedText>
-          <ThemedText type="subtitle">BookPass</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.tagline}>
-            Borrow from the library, carry your pass.
-          </ThemedText>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <IconTile name="book" tone="primary" size={76} />
+            <Pill label="Neighbourhood Literary Commons" tone="accent" />
+            <Text variant="display" color="onSurface" style={styles.centred}>
+              Welcome back, Reader
+            </Text>
+            <Text variant="body" color="onSurfaceMuted" style={styles.centred}>
+              Sign in to reach your shelf and the community book exchange.
+            </Text>
+          </View>
 
-          <View style={styles.form}>
-            <TextInput
-              accessibilityLabel="Email address"
+          <Segmented<Mode>
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'sign-in', label: 'Sign In', icon: 'log-in-outline' },
+              { value: 'register', label: 'Create Account', icon: 'person-add-outline' },
+            ]}
+          />
+
+          <Card style={styles.form}>
+            <Field
+              label="Email Address"
+              hint="Uni or Personal"
+              icon="mail-outline"
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
               onChangeText={setEmail}
               placeholder="you@uic.edu.ph"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={email}
+              valid={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())}
             />
-            <TextInput
-              accessibilityLabel="Password"
+            <Field
+              label="Password"
+              icon="lock-closed-outline"
               autoCapitalize="none"
               onChangeText={setPassword}
-              placeholder="Password"
-              placeholderTextColor={theme.textSecondary}
-              secureTextEntry
-              style={inputStyle}
+              placeholder="Your password"
+              secure
               value={password}
+              error={error ?? undefined}
             />
-
-            {error ? (
-              <ThemedText type="small" themeColor="danger">
-                {error}
-              </ThemedText>
-            ) : null}
-
-            <Button label="Sign in" onPress={handleSignIn} busy={busy} />
-
-            <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
-              Demo sign-in — any valid email address is accepted.
-            </ThemedText>
-          </View>
-        </View>
+            <Button
+              label={mode === 'sign-in' ? 'Sign In to BookPass' : 'Create Account'}
+              icon="book-outline"
+              onPress={handleSubmit}
+              busy={busy}
+              block
+            />
+            <Text variant="caption" color="onSurfaceMuted" style={styles.centred}>
+              Demo sign-in — any valid email address works.
+            </Text>
+          </Card>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -98,29 +107,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
-    padding: Spacing.four,
+    gap: Spacing.x6,
+    padding: Spacing.x5,
   },
-  logo: {
-    fontSize: 48,
-    lineHeight: 56,
+  header: {
+    alignItems: 'center',
+    gap: Spacing.xl,
   },
-  tagline: {
-    marginTop: Spacing.one,
+  centred: {
+    textAlign: 'center',
   },
   form: {
-    marginTop: Spacing.five,
-    gap: Spacing.three,
-  },
-  input: {
-    minHeight: 48,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.medium,
-    borderWidth: StyleSheet.hairlineWidth,
-    fontSize: 16,
-  },
-  note: {
-    textAlign: 'center',
+    gap: Spacing.x5,
   },
 });

@@ -1,10 +1,10 @@
 /**
- * Loans shared across screens.
+ * Everything the current user's shelf and exchanges depend on.
  *
- * Browse, Book detail and My Loans all need to agree on what is currently
- * borrowed, so the loan list is held here rather than fetched per screen.
- * Mutations refresh the list, then rethrow — screens decide how to report
- * failure.
+ * Home, My Books, Exchange and Borrowed all need to agree on what is owned,
+ * lent, borrowed and pending — so it is loaded once here rather than per
+ * screen. Every mutation refreshes the whole set, then rethrows; screens decide
+ * how to report failure.
  */
 
 import {
@@ -17,17 +17,34 @@ import {
   type ReactNode,
 } from 'react';
 
-import { borrowBook, isActive, listLoans, returnLoan } from '@/services/loans';
-import type { Loan } from '@/types';
+import { getMyShelf, removeCopy, type CopyPatch, updateCopy } from '@/services/catalog';
+import {
+  acceptRequest,
+  cancelRequest,
+  createRequest,
+  declineRequest,
+  getPendingRequests,
+  type RequestDetail,
+} from '@/services/exchange';
+import { getBorrowedBooks, getLentBooks, isOverdue, returnLoan, type LoanDetail } from '@/services/loans';
+import type { Listing, RequestKind } from '@/types';
 
 type LibraryValue = {
-  loans: Loan[];
+  shelf: Listing[];
+  borrowed: LoanDetail[];
+  lent: LoanDetail[];
+  requests: RequestDetail[];
   isLoading: boolean;
   error: string | null;
+  /** Derived counts for the dashboard stat cards. */
+  stats: { owned: number; borrowed: number; lent: number; pending: number; overdue: number };
   refresh: () => Promise<void>;
-  borrow: (bookId: string) => Promise<void>;
   returnBook: (loanId: string) => Promise<void>;
-  activeLoanForBook: (bookId: string) => Loan | undefined;
+  editCopy: (copyId: string, patch: CopyPatch) => Promise<void>;
+  deleteCopy: (copyId: string) => Promise<void>;
+  requestBook: (copyId: string, kind: RequestKind, offeredCopyId?: string | null) => Promise<void>;
+  respondToRequest: (requestId: string, accept: boolean) => Promise<void>;
+  withdrawRequest: (requestId: string) => Promise<void>;
 };
 
 const LibraryContext = createContext<LibraryValue | null>(null);
@@ -37,14 +54,27 @@ function messageFrom(cause: unknown): string {
 }
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
-  const [loans, setLoans] = useState<Loan[]>([]);
+  const [shelf, setShelf] = useState<Listing[]>([]);
+  const [borrowed, setBorrowed] = useState<LoanDetail[]>([]);
+  const [lent, setLent] = useState<LoanDetail[]>([]);
+  const [requests, setRequests] = useState<RequestDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
-      setLoans(await listLoans());
+      // One round trip per collection; they are independent.
+      const [nextShelf, nextBorrowed, nextLent, nextRequests] = await Promise.all([
+        getMyShelf(),
+        getBorrowedBooks(),
+        getLentBooks(),
+        getPendingRequests(),
+      ]);
+      setShelf(nextShelf);
+      setBorrowed(nextBorrowed);
+      setLent(nextLent);
+      setRequests(nextRequests);
       setError(null);
     } catch (cause) {
       setError(messageFrom(cause));
@@ -57,14 +87,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const borrow = useCallback(
-    async (bookId: string) => {
-      await borrowBook(bookId);
-      await refresh();
-    },
-    [refresh]
-  );
-
   const returnBook = useCallback(
     async (loanId: string) => {
       await returnLoan(loanId);
@@ -73,14 +95,90 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     [refresh]
   );
 
-  const activeLoanForBook = useCallback(
-    (bookId: string) => loans.find((loan) => loan.bookId === bookId && isActive(loan)),
-    [loans]
+  const editCopy = useCallback(
+    async (copyId: string, patch: CopyPatch) => {
+      await updateCopy(copyId, patch);
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const deleteCopy = useCallback(
+    async (copyId: string) => {
+      await removeCopy(copyId);
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const requestBook = useCallback(
+    async (copyId: string, kind: RequestKind, offeredCopyId: string | null = null) => {
+      await createRequest(copyId, kind, offeredCopyId);
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const respondToRequest = useCallback(
+    async (requestId: string, accept: boolean) => {
+      await (accept ? acceptRequest(requestId) : declineRequest(requestId));
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const withdrawRequest = useCallback(
+    async (requestId: string) => {
+      await cancelRequest(requestId);
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const stats = useMemo(
+    () => ({
+      owned: shelf.length,
+      borrowed: borrowed.length,
+      lent: lent.length,
+      pending: requests.length,
+      overdue: borrowed.filter((detail) => isOverdue(detail.loan)).length,
+    }),
+    [shelf, borrowed, lent, requests]
   );
 
   const value = useMemo(
-    () => ({ loans, isLoading, error, refresh, borrow, returnBook, activeLoanForBook }),
-    [loans, isLoading, error, refresh, borrow, returnBook, activeLoanForBook]
+    () => ({
+      shelf,
+      borrowed,
+      lent,
+      requests,
+      isLoading,
+      error,
+      stats,
+      refresh,
+      returnBook,
+      editCopy,
+      deleteCopy,
+      requestBook,
+      respondToRequest,
+      withdrawRequest,
+    }),
+    [
+      shelf,
+      borrowed,
+      lent,
+      requests,
+      isLoading,
+      error,
+      stats,
+      refresh,
+      returnBook,
+      editCopy,
+      deleteCopy,
+      requestBook,
+      respondToRequest,
+      withdrawRequest,
+    ]
   );
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;

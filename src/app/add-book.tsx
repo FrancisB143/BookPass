@@ -7,7 +7,7 @@ import { Spacing } from '@/constants/theme';
 import { useLibrary } from '@/context/library-context';
 
 /** Placeholder shell — the designed screen lands in the next wave. */
-export default function EditBookScreen() {
+export default function AddBookScreen() {
   const { isLoading, stats } = useLibrary();
 
   if (isLoading) {
@@ -22,7 +22,7 @@ export default function EditBookScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <Text variant="display" color="onSurface">
-          Edit Book
+          Add Book
         </Text>
         <Text variant="body" color="onSurfaceMuted">
           {stats.owned} owned · {stats.borrowed} borrowed · {stats.lent} lent · {stats.pending} pending

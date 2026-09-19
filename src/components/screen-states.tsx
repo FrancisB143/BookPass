@@ -8,20 +8,19 @@
 
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/components/ui/button';
+import { IconTile } from '@/components/ui/surface';
+import { Text } from '@/components/ui/text';
+import { Colors, Spacing } from '@/constants/theme';
+import type Ionicons from '@expo/vector-icons/Ionicons';
 
 export function LoadingState({ label = 'Loading…' }: { label?: string }) {
-  const theme = useTheme();
-
   return (
     <View style={styles.centred}>
-      <ActivityIndicator color={theme.accent} />
-      <ThemedText type="small" themeColor="textSecondary" style={styles.spaced}>
+      <ActivityIndicator color={Colors.primary} />
+      <Text variant="caption" color="onSurfaceMuted">
         {label}
-      </ThemedText>
+      </Text>
     </View>
   );
 }
@@ -29,35 +28,33 @@ export function LoadingState({ label = 'Loading…' }: { label?: string }) {
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <View style={styles.centred}>
-      <ThemedText style={styles.glyph}>⚠️</ThemedText>
-      <ThemedText type="smallBold" themeColor="danger" style={styles.centredText}>
+      <IconTile name="alert-circle-outline" tone="neutral" size={56} />
+      <Text variant="labelLg" color="error" style={styles.centredText}>
         {message}
-      </ThemedText>
-      {onRetry ? (
-        <Button label="Try again" variant="secondary" onPress={onRetry} style={styles.action} />
-      ) : null}
+      </Text>
+      {onRetry ? <Button label="Try again" variant="secondary" onPress={onRetry} /> : null}
     </View>
   );
 }
 
-export function EmptyState({
-  glyph = '📚',
-  title,
-  message,
-}: {
-  glyph?: string;
+export type EmptyStateProps = {
+  icon?: keyof typeof Ionicons.glyphMap;
   title: string;
   message: string;
-}) {
+  action?: { label: string; onPress: () => void };
+};
+
+export function EmptyState({ icon = 'book-outline', title, message, action }: EmptyStateProps) {
   return (
     <View style={styles.centred}>
-      <ThemedText style={styles.glyph}>{glyph}</ThemedText>
-      <ThemedText type="smallBold" style={styles.centredText}>
+      <IconTile name={icon} tone="accent" size={64} />
+      <Text variant="title" color="onSurface" style={styles.centredText}>
         {title}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.centredText}>
+      </Text>
+      <Text variant="body" color="onSurfaceMuted" style={styles.centredText}>
         {message}
-      </ThemedText>
+      </Text>
+      {action ? <Button label={action.label} onPress={action.onPress} /> : null}
     </View>
   );
 }
@@ -67,22 +64,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.four,
+    gap: Spacing.xl,
+    padding: Spacing.x6,
   },
   centredText: {
     textAlign: 'center',
-  },
-  glyph: {
-    fontSize: 40,
-    lineHeight: 48,
-    marginBottom: Spacing.two,
-  },
-  spaced: {
-    marginTop: Spacing.two,
-  },
-  action: {
-    marginTop: Spacing.three,
-    alignSelf: 'stretch',
-    maxWidth: 240,
   },
 });
