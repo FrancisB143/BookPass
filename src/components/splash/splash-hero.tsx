@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Screen } from '@/components/screen';
@@ -57,7 +57,8 @@ export function SplashHero({ onGetStarted, onSignIn }: SplashHeroProps) {
       toValue: 1,
       duration: ENTRANCE_MS,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      // react-native-web has no native animated module.
+      useNativeDriver: Platform.OS !== 'web',
     });
 
     animation.start();

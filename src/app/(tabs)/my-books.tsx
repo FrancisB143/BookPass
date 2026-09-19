@@ -5,6 +5,7 @@ import { Alert, FlatList, RefreshControl, StyleSheet, View } from 'react-native'
 import { ShelfAppBar } from '@/components/my-books/shelf-app-bar';
 import { ShelfBookCard } from '@/components/my-books/shelf-book-card';
 import { ShelfBookTile } from '@/components/my-books/shelf-book-tile';
+import { Appear } from '@/components/ui/appear';
 import { ShelfHeader, type ShelfView } from '@/components/my-books/shelf-header';
 import {
   SHELF_SORTS,
@@ -251,29 +252,39 @@ export default function MyBooksScreen() {
             colors={[Colors.primary]}
           />
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const loan = loanFor(item.copy.id);
 
           if (view === 'grid') {
-            return <ShelfBookTile listing={item} loan={loan} onOpen={() => openCopy(item.copy.id)} />;
+            return (
+              <Appear index={index} style={styles.tile}>
+                <ShelfBookTile
+                  listing={item}
+                  loan={loan}
+                  onOpen={() => openCopy(item.copy.id)}
+                />
+              </Appear>
+            );
           }
 
           return (
-            <ShelfBookCard
-              listing={item}
-              loan={loan}
-              offers={offersFor(item.copy.id)}
-              expanded={expandedId === item.copy.id}
-              onToggle={() =>
-                setExpandedId((current) => (current === item.copy.id ? null : item.copy.id))
-              }
-              onOpen={() => openCopy(item.copy.id)}
-              onMenu={() => openMenu(item)}
-              onReviewOffers={() => router.push('/exchange')}
-              onMarkReturned={() => {
-                if (loan) markReturned(loan);
-              }}
-            />
+            <Appear index={index}>
+              <ShelfBookCard
+                listing={item}
+                loan={loan}
+                offers={offersFor(item.copy.id)}
+                expanded={expandedId === item.copy.id}
+                onToggle={() =>
+                  setExpandedId((current) => (current === item.copy.id ? null : item.copy.id))
+                }
+                onOpen={() => openCopy(item.copy.id)}
+                onMenu={() => openMenu(item)}
+                onReviewOffers={() => router.push('/exchange')}
+                onMarkReturned={() => {
+                  if (loan) markReturned(loan);
+                }}
+              />
+            </Appear>
           );
         }}
       />
@@ -282,6 +293,11 @@ export default function MyBooksScreen() {
 }
 
 const styles = StyleSheet.create({
+  // The tile itself is flex:1, so its animation wrapper must be too or the
+  // two-column row collapses.
+  tile: {
+    flex: 1,
+  },
   content: {
     gap: Spacing.x6,
     paddingHorizontal: Spacing.gutter,

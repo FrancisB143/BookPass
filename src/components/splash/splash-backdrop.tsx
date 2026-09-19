@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StyleSheet, View } from 'react-native';
 
-import { Colors, Radius } from '@/constants/theme';
+import { Colors, NON_INTERACTIVE, Radius } from '@/constants/theme';
 
 /**
  * The ambient layer behind the splash: three honeycomb watermarks bleeding off
@@ -63,8 +63,7 @@ export function SplashBackdrop() {
     <View
       accessible={false}
       importantForAccessibility="no-hide-descendants"
-      pointerEvents="none"
-      style={styles.layer}>
+      style={[styles.layer, NON_INTERACTIVE]}>
       <View
         style={[
           styles.glow,

@@ -20,6 +20,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import { useLibrary } from '@/context/library-context';
 import { useSession } from '@/context/session-context';
 import type { LoanDetail } from '@/services/loans';
+import { Appear } from '@/components/ui/appear';
 
 /** "2 overdue · 1 due soon" — or the reassuring version when nothing is urgent. */
 function summarise(details: LoanDetail[]): string {
@@ -169,13 +170,15 @@ export default function BorrowedScreen() {
             />
           )
         }
-        renderItem={({ item }) => (
-          <LoanCard
-            detail={item}
-            side={side}
-            busy={returningId === item.loan.id}
-            onReturn={() => handleReturn(item)}
-          />
+        renderItem={({ item, index }) => (
+          <Appear index={index}>
+            <LoanCard
+              detail={item}
+              side={side}
+              busy={returningId === item.loan.id}
+              onReturn={() => handleReturn(item)}
+            />
+          </Appear>
         )}
       />
     </Screen>

@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Chip } from '@/components/ui/pill';
 import { Text } from '@/components/ui/text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, NON_INTERACTIVE, Spacing } from '@/constants/theme';
 import { useLibrary } from '@/context/library-context';
 import { useSession } from '@/context/session-context';
 import { getGenres, getListing, type CopyPatch } from '@/services/catalog';
@@ -249,8 +249,7 @@ export default function EditBookScreen() {
     <Screen>
       <LinearGradient
         colors={[Colors.surfaceBright, Colors.background]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, NON_INTERACTIVE]}
       />
 
       <EditBookAppBar

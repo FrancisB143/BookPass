@@ -13,6 +13,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { Duration } from '@/constants/motion';
 import { Colors } from '@/constants/theme';
 import { LibraryProvider } from '@/context/library-context';
 import { SessionProvider } from '@/context/session-context';
@@ -57,6 +58,10 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: Colors.background },
+            // Pushed screens slide in, so going deeper reads as a direction
+            // rather than a replacement.
+            animation: 'slide_from_right',
+            animationDuration: Duration.slow,
           }}
         />
         <StatusBar style="dark" />

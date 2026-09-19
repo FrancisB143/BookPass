@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, View } from 'react-native';
 
 import { Field } from '@/components/ui/field';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, NON_INTERACTIVE, Spacing } from '@/constants/theme';
 
 const FILTER_ICON = 20;
 
@@ -27,7 +27,7 @@ export function SearchBar({ value, onChangeText }: SearchBarProps) {
         autoCorrect={false}
         returnKeyType="search"
       />
-      <View style={styles.filter} pointerEvents="none">
+      <View style={[styles.filter, NON_INTERACTIVE]}>
         <Ionicons
           accessibilityLabel="Filters"
           name="options-outline"

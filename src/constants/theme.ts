@@ -11,6 +11,8 @@
 
 import '@/global.css';
 
+import { Platform, type ViewStyle } from 'react-native';
+
 export const Colors = {
   /** Brand orange — FAB, primary buttons, active tab. */
   primary: '#D97736',
@@ -132,23 +134,42 @@ export const Radius = {
   pill: 9999,
 } as const;
 
-/** Cards sit on a tinted canvas with a soft, low-contrast lift. */
+/**
+ * Cards sit on a tinted canvas with a soft, low-contrast lift.
+ *
+ * React Native Web deprecated the `shadow*` props in favour of `boxShadow`,
+ * while Android still needs `elevation`, so each level is declared per
+ * platform rather than warning on every render.
+ */
+function lift(
+  rgb: string,
+  opacity: number,
+  radius: number,
+  offsetY: number,
+  elevation: number
+): ViewStyle {
+  return Platform.select<ViewStyle>({
+    web: { boxShadow: `0px ${offsetY}px ${radius}px rgba(${rgb}, ${opacity})` },
+    default: {
+      shadowColor: `rgb(${rgb})`,
+      shadowOpacity: opacity,
+      shadowRadius: radius,
+      shadowOffset: { width: 0, height: offsetY },
+      elevation,
+    },
+  }) as ViewStyle;
+}
+
 export const Elevation = {
-  card: {
-    shadowColor: '#1B1F3B',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  floating: {
-    shadowColor: '#7A3B12',
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-  },
+  card: lift('27, 31, 59', 0.06, 12, 4, 2),
+  floating: lift('122, 59, 18', 0.28, 12, 6, 8),
 } as const;
+
+/**
+ * Decorative layers that must not swallow touches. React Native Web deprecated
+ * the `pointerEvents` prop, so this goes in `style` instead.
+ */
+export const NON_INTERACTIVE: ViewStyle = { pointerEvents: 'none' };
 
 /** Frames are drawn at 390pt wide. */
 export const DesignWidth = 390;

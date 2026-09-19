@@ -4,6 +4,7 @@ import type { BottomTabBarProps } from 'expo-router/tabs';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { Colors, Elevation, Radius, Spacing } from '@/constants/theme';
 
@@ -63,13 +64,14 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
       <View style={styles.side}>{state.routes.slice(0, half).map(renderTab)}</View>
 
       <View style={styles.fabSlot}>
-        <Pressable
+        <PressableScale
           accessibilityRole="button"
           accessibilityLabel="Add a book"
           onPress={() => router.push('/add-book')}
-          style={({ pressed }) => [styles.fab, { opacity: pressed ? 0.9 : 1 }]}>
+          scaleTo={0.92}
+          style={styles.fab}>
           <Ionicons name="add" size={30} color={Colors.onPrimary} />
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={styles.side}>

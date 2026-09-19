@@ -24,6 +24,7 @@ import { useAsync } from '@/hooks/use-async';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { searchListings, type ExchangeFilter } from '@/services/catalog';
 import type { Listing } from '@/types';
+import { Appear } from '@/components/ui/appear';
 
 type Tab = 'browse' | 'requests';
 
@@ -200,14 +201,16 @@ export default function ExchangeScreen() {
               action={{ label: 'Browse books', onPress: () => setTab('browse') }}
             />
           }
-          renderItem={({ item }) => (
-            <RequestCard
-              detail={item}
-              busy={busyId === item.request.id}
-              onAccept={() => answer(item.request.id, true)}
-              onDecline={() => answer(item.request.id, false)}
-              onWithdraw={() => withdraw(item.request.id)}
-            />
+          renderItem={({ item, index }) => (
+            <Appear index={index}>
+              <RequestCard
+                detail={item}
+                busy={busyId === item.request.id}
+                onAccept={() => answer(item.request.id, true)}
+                onDecline={() => answer(item.request.id, false)}
+                onWithdraw={() => withdraw(item.request.id)}
+              />
+            </Appear>
           )}
         />
       </Screen>
@@ -273,16 +276,18 @@ export default function ExchangeScreen() {
             />
           ) : null
         }
-        renderItem={({ item }) => (
-          <ListingCard
-            listing={item}
-            favourite={favourites.includes(item.copy.id)}
-            onToggleFavourite={() => toggleFavourite(item.copy.id)}
-            requested={requestedCopyIds.has(item.copy.id)}
-            busy={busyId === item.copy.id}
-            onRequest={() => startRequest(item)}
-            onChat={() => Alert.alert('Chat', 'Messaging is not built yet.')}
-          />
+        renderItem={({ item, index }) => (
+          <Appear index={index}>
+            <ListingCard
+              listing={item}
+              favourite={favourites.includes(item.copy.id)}
+              onToggleFavourite={() => toggleFavourite(item.copy.id)}
+              requested={requestedCopyIds.has(item.copy.id)}
+              busy={busyId === item.copy.id}
+              onRequest={() => startRequest(item)}
+              onChat={() => Alert.alert('Chat', 'Messaging is not built yet.')}
+            />
+          </Appear>
         )}
       />
 

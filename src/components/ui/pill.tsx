@@ -1,7 +1,15 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useDerivedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
-import { Colors, Radius, Spacing, type ThemeColor } from '@/constants/theme';
+import { Duration, EASE_IN_OUT } from '@/constants/motion';
+import { Colors, Radius, Spacing, Typography, type ThemeColor } from '@/constants/theme';
 
 type Tone = 'success' | 'accent' | 'error' | 'neutral' | 'inverse';
 
@@ -40,27 +48,45 @@ export type ChipProps = {
   onPress: () => void;
 };
 
-/** Selectable filter chip. Selected reads as the inverted black pill. */
+/**
+ * Selectable filter chip. Selected reads as the inverted black pill.
+ *
+ * Both the fill and the label cross-fade rather than switching, so a row of
+ * chips reads as one control changing state instead of two things blinking.
+ */
 export function Chip({ label, selected = false, onPress }: ChipProps) {
+  const progress = useDerivedValue(
+    () => withTiming(selected ? 1 : 0, { duration: Duration.fast, easing: EASE_IN_OUT }),
+    [selected]
+  );
+
+  const fill = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [Colors.surfaceVariant, Colors.inverseSurface]
+    ),
+  }));
+
+  const labelStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      progress.value,
+      [0, 1],
+      [Colors.onSurfaceVariant, Colors.onInverseSurface]
+    ),
+  }));
+
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.chip,
-        {
-          backgroundColor: selected ? Colors.inverseSurface : Colors.surfaceVariant,
-          opacity: pressed ? 0.85 : 1,
-        },
-      ]}>
-      <Text
-        variant="labelLg"
-        color={selected ? 'onInverseSurface' : 'onSurfaceVariant'}
-        numberOfLines={1}>
+      style={styles.chip}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.chipFill, fill]} />
+      <Animated.Text style={[Typography.labelLg, labelStyle]} numberOfLines={1}>
         {label}
-      </Text>
-    </Pressable>
+      </Animated.Text>
+    </PressableScale>
   );
 }
 
@@ -80,8 +106,14 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
   },
   chip: {
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: Spacing.gutter,
     paddingVertical: Spacing.lg,
+    borderRadius: Radius.pill,
+    overflow: 'hidden',
+  },
+  chipFill: {
     borderRadius: Radius.pill,
   },
 });

@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, type ViewStyle } from 'react-native';
 
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { Colors, Elevation, Radius, Spacing, type ThemeColor } from '@/constants/theme';
 
@@ -56,12 +57,12 @@ export function Button({
   ) : null;
 
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityState={{ disabled: blocked, busy }}
       disabled={blocked}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         {
           height: sizing.height,
@@ -70,7 +71,7 @@ export function Button({
           backgroundColor: palette.background,
           borderColor: palette.border,
           alignSelf: block ? 'stretch' : 'flex-start',
-          opacity: blocked ? 0.45 : pressed ? 0.88 : 1,
+          opacity: blocked ? 0.45 : 1,
         },
         variant === 'primary' && !blocked && Elevation.floating,
         style,
@@ -86,7 +87,7 @@ export function Button({
           {iconPosition === 'trailing' ? glyph : null}
         </View>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
