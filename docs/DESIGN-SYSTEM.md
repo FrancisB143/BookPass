@@ -100,6 +100,22 @@ Elsewhere:
   message action>`.
 - `<AppTabBar>` — the four-tab bar with the centre FAB. Already wired.
 
+## Gradients and vector art
+
+`expo-linear-gradient` and `react-native-svg` are available — both work in
+Expo Go.
+
+Use `<LinearGradient>` for the design's soft canvas washes and glows rather
+than stacking low-opacity `View`s. Use `react-native-svg` for line art the icon
+sets cannot express (the honeycomb watermarks, decorative rules, progress arcs).
+
+Colours still come from `Colors`. A gradient is a list of tokens, never new hex
+values:
+
+```tsx
+<LinearGradient colors={[Colors.surface, Colors.surfaceBright]} />
+```
+
 ## Data
 
 `useLibrary()` from `@/context/library-context` gives `shelf`, `borrowed`,
