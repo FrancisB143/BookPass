@@ -5,7 +5,7 @@ import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { Colors, Elevation, Radius, Spacing, type ThemeColor } from '@/constants/theme';
 
-type Variant = 'primary' | 'secondary' | 'tonal' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'tonal' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
 
 export type ButtonProps = {
@@ -27,6 +27,7 @@ const PALETTE: Record<Variant, { background: string; border: string; foreground:
   secondary: { background: Colors.surface, border: Colors.outline, foreground: 'onSurface' },
   tonal: { background: Colors.surfaceVariant, border: 'transparent', foreground: 'onSurface' },
   ghost: { background: 'transparent', border: 'transparent', foreground: 'onPrimaryContainer' },
+  danger: { background: Colors.error, border: Colors.error, foreground: 'onError' },
 };
 
 const SIZING: Record<Size, { height: number; padding: number; gap: number; icon: number }> = {

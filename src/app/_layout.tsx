@@ -15,8 +15,7 @@ import { useEffect } from 'react';
 
 import { Duration } from '@/constants/motion';
 import { Colors } from '@/constants/theme';
-import { LibraryProvider } from '@/context/library-context';
-import { SessionProvider } from '@/context/session-context';
+import { BooksProvider } from '@/context/books-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -52,20 +51,18 @@ export default function RootLayout() {
   }
 
   return (
-    <SessionProvider>
-      <LibraryProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: Colors.background },
-            // Pushed screens slide in, so going deeper reads as a direction
-            // rather than a replacement.
-            animation: 'slide_from_right',
-            animationDuration: Duration.slow,
-          }}
-        />
-        <StatusBar style="dark" />
-      </LibraryProvider>
-    </SessionProvider>
+    <BooksProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: Colors.background },
+          // Pushed screens slide in, so going deeper reads as a direction
+          // rather than a replacement.
+          animation: 'slide_from_right',
+          animationDuration: Duration.slow,
+        }}
+      />
+      <StatusBar style="dark" />
+    </BooksProvider>
   );
 }

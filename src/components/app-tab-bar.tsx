@@ -11,18 +11,18 @@ import { Colors, Elevation, Radius, Spacing } from '@/constants/theme';
 type IconPair = { active: keyof typeof Ionicons.glyphMap; idle: keyof typeof Ionicons.glyphMap };
 
 const ICONS: Record<string, IconPair> = {
-  home: { active: 'book', idle: 'book-outline' },
-  'my-books': { active: 'bookmarks', idle: 'bookmarks-outline' },
-  exchange: { active: 'swap-horizontal', idle: 'swap-horizontal-outline' },
-  borrowed: { active: 'calendar', idle: 'calendar-outline' },
+  index: { active: 'library', idle: 'library-outline' },
+  discover: { active: 'search', idle: 'search-outline' },
 };
 
 const FAB_SIZE = 60;
 
 /**
- * The design puts a raised "add book" FAB in the middle of a four-tab bar.
- * A tab navigator cannot express that, so the bar is drawn by hand: two tabs,
- * the FAB, two tabs. The FAB is not a route — it pushes the create screen.
+ * A raised "add book" FAB sits in the middle of the tab bar.
+ *
+ * A tab navigator cannot express that, so the bar is drawn by hand: the tabs
+ * are split either side of the FAB, which is not a route at all — it pushes
+ * the create screen.
  */
 export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
