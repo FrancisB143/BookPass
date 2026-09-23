@@ -45,3 +45,6 @@ example
 # Figma pull output (regenerate with `npm run figma:pull`)
 design/figma/file.json
 design/figma/frames/
+
+# Backend credentials — never commit these
+api/config.php
