@@ -6,10 +6,26 @@
  * back.
  */
 
-import { API_BASE_URL, REQUEST_TIMEOUT_MS } from '@/config';
+import { API_AUTH_TOKEN, API_BASE_URL, REQUEST_TIMEOUT_MS } from '@/config';
 import type { Book, BookDraft, BookStatus, FieldErrors } from '@/types';
 
 const ENDPOINT = `${API_BASE_URL}/books.php`;
+
+/**
+ * Finds the JSON inside a response body.
+ *
+ * Freehostia's free tier prepends a comment to every PHP response, so the body
+ * arrives as `/*  *​/{"id":1,…}` and `JSON.parse` throws on the very first
+ * character. Everything before the opening brace or bracket is dropped rather
+ * than parsed.
+ */
+function parseJson(text: string): unknown {
+  const start = text.search(/[[{]/);
+  if (start === -1) {
+    throw new SyntaxError('No JSON found in the response.');
+  }
+  return JSON.parse(text.slice(start));
+}
 
 /** A book exactly as the API sends it. */
 type BookRecord = {
@@ -113,7 +129,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     response = await fetch(url, {
       ...init,
       signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', ...init?.headers },
+      headers: {
+        'Content-Type': 'application/json',
+        // auth.php rejects anything without a bearer token.
+        Authorization: `Bearer ${API_AUTH_TOKEN}`,
+        ...init?.headers,
+      },
     });
   } catch (cause) {
     // An unreachable server is by far the most common failure here, and the
@@ -133,7 +154,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   let body: unknown = null;
   if (text.trim() !== '') {
     try {
-      body = JSON.parse(text);
+      body = parseJson(text);
     } catch {
       // PHP warnings and fatal errors come back as HTML, not JSON.
       throw new ApiError(

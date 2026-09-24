@@ -17,11 +17,13 @@ PHP + MySQL, in [`api/`](api/). Full CRUD over a `books` table.
 
 | Method | Endpoint | Operation |
 | --- | --- | --- |
-| `GET` | `api/books.php` | **Read** — list all books |
-| `GET` | `api/books.php?id=3` | **Read** — one book |
-| `POST` | `api/books.php` | **Create** |
-| `PUT` | `api/books.php?id=3` | **Update** |
-| `DELETE` | `api/books.php?id=3` | **Delete** |
+| `GET` | `books.php` | **Read** — list all books |
+| `GET` | `books.php?id=3` | **Read** — one book |
+| `POST` | `books.php` | **Create** |
+| `PUT` | `books.php?id=3` | **Update** |
+| `DELETE` | `books.php?id=3` | **Delete** |
+
+Live at `http://franseas.mooo.com/books.php`. Bearer token required.
 
 Setup instructions are in [`api/README.md`](api/README.md).
 
@@ -59,15 +61,19 @@ JSON array of books.
 
 ### 2. Point the app at it
 
-Edit one line in [`src/config.ts`](src/config.ts):
+Two constants in [`src/config.ts`](src/config.ts):
 
 ```ts
-export const API_BASE_URL = 'http://yoursite.freehostia.com/api';
+export const API_BASE_URL   = 'http://franseas.mooo.com';
+export const API_AUTH_TOKEN = '…';   // the bearer token from auth.php
 ```
+
+The API is guarded: every request sends `Authorization: Bearer <token>`.
+Without it the server answers `400`, and with a wrong value `401`.
 
 > **Testing against XAMPP from a phone?** `localhost` on a phone means the
 > phone. Run `ipconfig`, take your computer's IPv4 address, and use
-> `http://192.168.1.5/api` instead. Both devices must be on the same Wi-Fi.
+> `http://192.168.1.5` instead. Both devices must be on the same Wi-Fi.
 
 ### 3. Run the app
 

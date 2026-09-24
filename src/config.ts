@@ -19,7 +19,18 @@
  *
  * No trailing slash.
  */
-export const API_BASE_URL = 'http://localhost/api';
+export const API_BASE_URL = 'http://franseas.mooo.com';
+
+/**
+ * The bearer token `auth.php` expects.
+ *
+ * Every request sends `Authorization: Bearer <this>`. Without it the API
+ * answers 400 "Authorization header is missing"; with the wrong value, 401.
+ *
+ * This is the same token the existing student.php endpoint uses — it is in
+ * auth.php on the server.
+ */
+export const API_AUTH_TOKEN = 'PASTE_THE_TOKEN_FROM_auth.php_HERE';
 
 /**
  * The third-party public API: Open Library Search.
