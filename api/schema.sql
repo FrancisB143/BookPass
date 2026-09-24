@@ -1,8 +1,11 @@
 -- BookPass — database schema
 --
--- Run this once in phpMyAdmin (Freehostia control panel → MySQL Databases →
--- phpMyAdmin) after creating your database. Select your database first, open
--- the SQL tab, paste this in, and press Go.
+-- Adds a `books` table to the database you already have. It does not touch
+-- `students` or anything else that is in there.
+--
+-- Run it once: Freehostia control panel → MySQL Databases → phpMyAdmin,
+-- select your database in the left sidebar, open the SQL tab, paste this in,
+-- and press Go.
 
 CREATE TABLE IF NOT EXISTS books (
   id             INT AUTO_INCREMENT PRIMARY KEY,

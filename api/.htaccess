@@ -1,0 +1,17 @@
+RewriteEngine On
+
+# Existing endpoints. NOTE: these pointed at students.php, but the file on the
+# server is student.php (singular) — so /students/ was returning 404.
+RewriteRule ^students/?$ student.php [NC,L]
+RewriteRule ^students/([0-9]+)/?$ student.php?id=$1 [NC,L]
+
+RewriteRule ^kpop_dancers/?$ kpop_dancers.php [NC,L]
+RewriteRule ^kpop_dancers/([0-9]+)/?$ kpop_dancers.php?id=$1 [NC,L]
+
+# BookPass
+RewriteRule ^books/?$ books.php [NC,L]
+RewriteRule ^books/([0-9]+)/?$ books.php?id=$1 [NC,L]
+
+# Passes the Authorization header through to PHP. Apache strips it otherwise,
+# and auth.php would never see the credentials.
+SetEnvIf Authorization .+ HTTP_AUTHORIZATION=$0

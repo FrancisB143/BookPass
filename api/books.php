@@ -1,62 +1,135 @@
 <?php
 /**
- * Books — the full CRUD endpoint.
+ * Books — the BookPass CRUD endpoint.
  *
- *   GET    books.php              list every book, newest first
- *   GET    books.php?search=dune  filter by title or author
- *   GET    books.php?status=available
+ * Written to match student.php: same CORS headers, same connection.php class,
+ * same auth.php guard, same switch on REQUEST_METHOD.
+ *
+ *   GET    books.php              every book, newest first
  *   GET    books.php?id=3         one book
- *   POST   books.php              create        (JSON body)
- *   PUT    books.php?id=3         update        (JSON body)
+ *   GET    books.php?search=dune  filter by title or author
+ *   POST   books.php              create   (JSON body)
+ *   PUT    books.php?id=3         update   (JSON body)
  *   DELETE books.php?id=3         delete
  *
- * One file rather than rewritten routes: free hosting does not always honour
- * .htaccess, and a query string works everywhere.
+ * With the .htaccess rewrites in place these also work:
+ *   /books/        /books/3
  */
 
-declare(strict_types=1);
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Content-Type: application/json; charset=utf-8");
 
-require __DIR__ . '/db.php';
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
-const STATUSES = ['available', 'borrowed', 'reserved'];
+include("connection.php");
+include("auth.php");
 
-/** Columns the client may write. Anything else in the body is ignored. */
-const WRITABLE = ['title', 'author', 'genre', 'isbn', 'published_year', 'description', 'status', 'cover_url'];
-
-/**
- * MySQL returns every column as a string. The app expects a number for the id
- * and the year, so each row is normalised on the way out.
- */
-function shapeBook(array $row): array
+//Auth Start
+$auth = new authObj();
+$isAuthorized = $auth->authenticate();
+if (!$isAuthorized)
 {
-    return [
-        'id'             => (int) $row['id'],
-        'title'          => $row['title'],
-        'author'         => $row['author'],
-        'genre'          => $row['genre'],
-        'isbn'           => $row['isbn'],
-        'published_year' => $row['published_year'] === null ? null : (int) $row['published_year'],
-        'description'    => $row['description'],
-        'status'         => $row['status'],
-        'cover_url'      => $row['cover_url'],
-        'created_at'     => $row['created_at'],
-        'updated_at'     => $row['updated_at'],
-    ];
+    header("HTTP/1.0 401");
+    echo json_encode(array("error" => "Not authorized."));
+    exit;
+}
+//Auth End
+
+$db = new dbObj();
+$connection = $db->getConnstring();
+
+/** Sends a JSON response and stops. */
+function respond($status, $payload)
+{
+    http_response_code($status);
+    echo json_encode($payload);
+    exit;
+}
+
+/** Sends an error in the same shape every time, so the app can rely on it. */
+function fail($status, $message, $fields = array())
+{
+    $body = array("error" => $message);
+    if (!empty($fields)) {
+        $body["fields"] = $fields;
+    }
+    respond($status, $body);
 }
 
 /**
- * Checks a payload and returns the columns to write.
+ * Reads the request body as JSON.
+ *
+ * PHP fills $_POST only for form encoding, and never for PUT, so the raw
+ * stream is read directly.
+ */
+function json_body()
+{
+    $raw = file_get_contents("php://input");
+    if ($raw === false || trim($raw) === "") {
+        return array();
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        fail(400, "The request body was not valid JSON.");
+    }
+    return $decoded;
+}
+
+/**
+ * MySQL returns every column as a string. The app expects numbers for the id
+ * and the year, so each row is normalised on the way out.
+ */
+function shape_book($row)
+{
+    return array(
+        "id"             => intval($row["id"]),
+        "title"          => $row["title"],
+        "author"         => $row["author"],
+        "genre"          => $row["genre"],
+        "isbn"           => $row["isbn"],
+        "published_year" => $row["published_year"] === null ? null : intval($row["published_year"]),
+        "description"    => $row["description"],
+        "status"         => $row["status"],
+        "cover_url"      => $row["cover_url"],
+        "created_at"     => $row["created_at"],
+        "updated_at"     => $row["updated_at"]
+    );
+}
+
+function find_book($connection, $id)
+{
+    $statement = mysqli_prepare($connection, "SELECT * FROM books WHERE id = ?");
+    mysqli_stmt_bind_param($statement, "i", $id);
+    mysqli_stmt_execute($statement);
+    $result = mysqli_stmt_get_result($statement);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($statement);
+
+    return $row ? $row : null;
+}
+
+/**
+ * Checks a payload and returns the values to write.
  *
  * On create every required field must be present. On update only the fields
- * that were actually sent are touched, so an edit form cannot blank a column
- * it never showed.
+ * actually sent are touched, so an edit form cannot blank a column it never
+ * displayed.
  */
-function validate(array $body, bool $creating): array
+function validate($body, $creating)
 {
-    $errors = [];
-    $values = [];
+    $allowed = array("title", "author", "genre", "isbn", "published_year", "description", "status", "cover_url");
+    $statuses = array("available", "borrowed", "reserved");
 
-    foreach (WRITABLE as $field) {
+    $errors = array();
+    $values = array();
+
+    foreach ($allowed as $field) {
         if (!array_key_exists($field, $body)) {
             continue;
         }
@@ -64,50 +137,48 @@ function validate(array $body, bool $creating): array
         $values[$field] = is_string($value) ? trim($value) : $value;
     }
 
-    if ($creating) {
-        foreach (['title', 'author'] as $required) {
-            if (($values[$required] ?? '') === '') {
-                $errors[$required] = ucfirst($required) . ' is required.';
+    foreach (array("title", "author") as $required) {
+        if ($creating) {
+            if (!isset($values[$required]) || $values[$required] === "") {
+                $errors[$required] = ucfirst($required) . " is required.";
             }
-        }
-    } else {
-        foreach (['title', 'author'] as $required) {
-            if (array_key_exists($required, $values) && $values[$required] === '') {
-                $errors[$required] = ucfirst($required) . ' cannot be empty.';
+        } else {
+            if (array_key_exists($required, $values) && $values[$required] === "") {
+                $errors[$required] = ucfirst($required) . " cannot be empty.";
             }
         }
     }
 
-    if (isset($values['title']) && mb_strlen((string) $values['title']) > 255) {
-        $errors['title'] = 'Title is too long (255 characters maximum).';
+    if (isset($values["title"]) && strlen($values["title"]) > 255) {
+        $errors["title"] = "Title is too long (255 characters maximum).";
     }
 
-    if (array_key_exists('published_year', $values)) {
-        $year = $values['published_year'];
-        if ($year === null || $year === '') {
-            $values['published_year'] = null;
+    if (array_key_exists("published_year", $values)) {
+        $year = $values["published_year"];
+        if ($year === null || $year === "") {
+            $values["published_year"] = null;
         } else {
             $parsed = filter_var($year, FILTER_VALIDATE_INT);
-            if ($parsed === false || $parsed < 1000 || $parsed > (int) date('Y') + 1) {
-                $errors['published_year'] = 'Enter a four-digit year.';
+            if ($parsed === false || $parsed < 1000 || $parsed > intval(date("Y")) + 1) {
+                $errors["published_year"] = "Enter a four-digit year.";
             } else {
-                $values['published_year'] = $parsed;
+                $values["published_year"] = $parsed;
             }
         }
     }
 
-    if (isset($values['status']) && !in_array($values['status'], STATUSES, true)) {
-        $errors['status'] = 'Status must be one of: ' . implode(', ', STATUSES) . '.';
+    if (isset($values["status"]) && !in_array($values["status"], $statuses)) {
+        $errors["status"] = "Status must be one of: " . implode(", ", $statuses) . ".";
     }
 
-    if ($errors !== []) {
-        respond(422, ['error' => 'Some fields need fixing.', 'fields' => $errors]);
+    if (!empty($errors)) {
+        fail(422, "Some fields need fixing.", $errors);
     }
 
     // An empty optional string is stored as NULL, so "no ISBN" has one
     // representation in the database instead of two.
-    foreach (['genre', 'isbn', 'description', 'cover_url'] as $optional) {
-        if (array_key_exists($optional, $values) && $values[$optional] === '') {
+    foreach (array("genre", "isbn", "description", "cover_url") as $optional) {
+        if (array_key_exists($optional, $values) && $values[$optional] === "") {
             $values[$optional] = null;
         }
     }
@@ -115,109 +186,154 @@ function validate(array $body, bool $creating): array
     return $values;
 }
 
-function findBook(int $id): ?array
+/** Builds the bind-type string mysqli needs: "i" for the year, "s" for the rest. */
+function bind_types($columns)
 {
-    $statement = db()->prepare('SELECT * FROM books WHERE id = ?');
-    $statement->execute([$id]);
-    $row = $statement->fetch();
-
-    return $row === false ? null : $row;
+    $types = "";
+    foreach ($columns as $column) {
+        $types .= ($column === "published_year") ? "i" : "s";
+    }
+    return $types;
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+$request_method = $_SERVER["REQUEST_METHOD"];
 $id = null;
 
-if (isset($_GET['id'])) {
-    $id = filter_var($_GET['id'], FILTER_VALIDATE_INT);
+if (isset($_GET["id"])) {
+    $id = filter_var($_GET["id"], FILTER_VALIDATE_INT);
     if ($id === false) {
-        fail(400, 'The id must be a number.');
+        fail(400, "The id must be a number.");
     }
 }
 
-switch ($method) {
+switch ($request_method)
+{
     case 'GET':
         if ($id !== null) {
-            $row = findBook($id);
+            $row = find_book($connection, $id);
             if ($row === null) {
-                fail(404, 'No book found with that id.');
+                fail(404, "No book found with that id.");
             }
-            respond(200, shapeBook($row));
+            respond(200, shape_book($row));
         }
 
-        $sql = 'SELECT * FROM books';
-        $where = [];
-        $params = [];
+        $search = isset($_GET["search"]) ? trim($_GET["search"]) : "";
+        $status = isset($_GET["status"]) ? trim($_GET["status"]) : "";
 
-        $search = trim((string) ($_GET['search'] ?? ''));
-        if ($search !== '') {
-            $where[] = '(title LIKE ? OR author LIKE ?)';
-            $params[] = '%' . $search . '%';
-            $params[] = '%' . $search . '%';
+        $clauses = array();
+        $params = array();
+        $types = "";
+
+        if ($search !== "") {
+            $clauses[] = "(title LIKE ? OR author LIKE ?)";
+            $params[] = "%" . $search . "%";
+            $params[] = "%" . $search . "%";
+            $types .= "ss";
         }
 
-        $status = trim((string) ($_GET['status'] ?? ''));
-        if ($status !== '' && in_array($status, STATUSES, true)) {
-            $where[] = 'status = ?';
+        if ($status !== "" && in_array($status, array("available", "borrowed", "reserved"))) {
+            $clauses[] = "status = ?";
             $params[] = $status;
+            $types .= "s";
         }
 
-        if ($where !== []) {
-            $sql .= ' WHERE ' . implode(' AND ', $where);
+        $sql = "SELECT * FROM books";
+        if (!empty($clauses)) {
+            $sql .= " WHERE " . implode(" AND ", $clauses);
         }
-        $sql .= ' ORDER BY created_at DESC, id DESC';
+        $sql .= " ORDER BY created_at DESC, id DESC";
 
-        $statement = db()->prepare($sql);
-        $statement->execute($params);
-        respond(200, array_map('shapeBook', $statement->fetchAll()));
+        $statement = mysqli_prepare($connection, $sql);
+        if (!empty($params)) {
+            mysqli_stmt_bind_param($statement, $types, ...$params);
+        }
+        mysqli_stmt_execute($statement);
+        $result = mysqli_stmt_get_result($statement);
+
+        $books = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+            $books[] = shape_book($row);
+        }
+        mysqli_stmt_close($statement);
+
+        respond(200, $books);
+        break;
 
     case 'POST':
-        $values = validate(jsonBody(), true);
+        $values = validate(json_body(), true);
 
         $columns = array_keys($values);
-        $placeholders = implode(', ', array_fill(0, count($columns), '?'));
-        $sql = 'INSERT INTO books (' . implode(', ', $columns) . ') VALUES (' . $placeholders . ')';
+        $placeholders = implode(", ", array_fill(0, count($columns), "?"));
+        $sql = "INSERT INTO books (" . implode(", ", $columns) . ") VALUES (" . $placeholders . ")";
 
-        $statement = db()->prepare($sql);
-        $statement->execute(array_values($values));
+        $statement = mysqli_prepare($connection, $sql);
+        $bound = array_values($values);
+        mysqli_stmt_bind_param($statement, bind_types($columns), ...$bound);
 
-        $created = findBook((int) db()->lastInsertId());
-        respond(201, shapeBook($created));
+        if (!mysqli_stmt_execute($statement)) {
+            fail(500, "Could not save that book: " . mysqli_error($connection));
+        }
+
+        $newId = mysqli_insert_id($connection);
+        mysqli_stmt_close($statement);
+
+        respond(201, shape_book(find_book($connection, $newId)));
+        break;
 
     case 'PUT':
         if ($id === null) {
-            fail(400, 'Which book? Add ?id= to the URL.');
+            fail(400, "Which book? Add ?id= to the URL.");
         }
-        if (findBook($id) === null) {
-            fail(404, 'No book found with that id.');
-        }
-
-        $values = validate(jsonBody(), false);
-        if ($values === []) {
-            fail(400, 'Nothing to update.');
+        if (find_book($connection, $id) === null) {
+            fail(404, "No book found with that id.");
         }
 
-        $assignments = [];
-        foreach (array_keys($values) as $column) {
-            $assignments[] = $column . ' = ?';
+        $values = validate(json_body(), false);
+        if (empty($values)) {
+            fail(400, "Nothing to update.");
         }
 
-        $sql = 'UPDATE books SET ' . implode(', ', $assignments) . ' WHERE id = ?';
-        $statement = db()->prepare($sql);
-        $statement->execute(array_merge(array_values($values), [$id]));
+        $columns = array_keys($values);
+        $assignments = array();
+        foreach ($columns as $column) {
+            $assignments[] = $column . " = ?";
+        }
 
-        respond(200, shapeBook(findBook($id)));
+        $sql = "UPDATE books SET " . implode(", ", $assignments) . " WHERE id = ?";
+        $statement = mysqli_prepare($connection, $sql);
+
+        $bound = array_values($values);
+        $bound[] = $id;
+        mysqli_stmt_bind_param($statement, bind_types($columns) . "i", ...$bound);
+
+        if (!mysqli_stmt_execute($statement)) {
+            fail(500, "Could not update that book: " . mysqli_error($connection));
+        }
+        mysqli_stmt_close($statement);
+
+        respond(200, shape_book(find_book($connection, $id)));
+        break;
 
     case 'DELETE':
         if ($id === null) {
-            fail(400, 'Which book? Add ?id= to the URL.');
+            fail(400, "Which book? Add ?id= to the URL.");
         }
-        if (findBook($id) === null) {
-            fail(404, 'No book found with that id.');
+        if (find_book($connection, $id) === null) {
+            fail(404, "No book found with that id.");
         }
 
-        db()->prepare('DELETE FROM books WHERE id = ?')->execute([$id]);
-        respond(200, ['deleted' => $id]);
+        $statement = mysqli_prepare($connection, "DELETE FROM books WHERE id = ?");
+        mysqli_stmt_bind_param($statement, "i", $id);
+
+        if (!mysqli_stmt_execute($statement)) {
+            fail(500, "Could not delete that book: " . mysqli_error($connection));
+        }
+        mysqli_stmt_close($statement);
+
+        respond(200, array("deleted" => $id));
+        break;
 
     default:
-        fail(405, $method . ' is not supported on this endpoint.');
+        fail(405, $request_method . " is not supported on this endpoint.");
+        break;
 }
