@@ -1,15 +1,12 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, View } from 'react-native';
 
 import { BookCover } from '@/components/book-cover';
-import { PressableScale } from '@/components/ui/pressable-scale';
+import { Button } from '@/components/ui/button';
+import { Pill } from '@/components/ui/pill';
 import { Card } from '@/components/ui/surface';
 import { Text } from '@/components/ui/text';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import type { OpenLibraryBook } from '@/services/open-library';
-
-const COVER = { width: 74, height: 106 } as const;
-const ADD_BUTTON = 44;
 
 export type DiscoverResultCardProps = {
   book: OpenLibraryBook;
@@ -18,69 +15,54 @@ export type DiscoverResultCardProps = {
   onAdd: () => void;
 };
 
-/**
- * One Open Library search hit.
- *
- * A full-width button on every row turns a list of ten results into a wall of
- * identical orange bars, and the eye stops reading the books. The action is a
- * single round button instead — still a 44pt target, but subordinate to the
- * cover and title, which are what you are actually scanning.
- */
+/** One Open Library search hit, with the details we can carry into the form. */
 export function DiscoverResultCard({ book, alreadyOwned, onAdd }: DiscoverResultCardProps) {
-  const meta = [
-    book.firstPublishYear ? String(book.firstPublishYear) : null,
-    book.subject,
-  ]
-    .filter(Boolean)
-    .join('  ·  ');
-
   return (
     <Card style={styles.card}>
-      <BookCover
-        title={book.title}
-        author={book.author}
-        coverUrl={book.coverUrl}
-        width={COVER.width}
-        height={COVER.height}
-        radius={Radius.xs}
-      />
+      <View style={styles.row}>
+        <BookCover
+          title={book.title}
+          author={book.author}
+          coverUrl={book.coverUrl}
+          width={60}
+          height={82}
+        />
 
-      <View style={styles.details}>
-        <Text variant="titleBook" color="onSurface" numberOfLines={2}>
-          {book.title}
-        </Text>
-        <Text variant="body" color="onSurfaceVariant" numberOfLines={1}>
-          {book.author}
-        </Text>
-
-        {meta ? (
+        <View style={styles.details}>
+          <Text variant="titleBook" color="onSurface" numberOfLines={2}>
+            {book.title}
+          </Text>
           <Text variant="caption" color="onSurfaceMuted" numberOfLines={1}>
-            {meta}
+            {book.author}
           </Text>
-        ) : null}
 
-        {book.isbn ? (
-          <Text variant="micro" color="onSurfaceMuted" numberOfLines={1}>
-            ISBN {book.isbn}
-          </Text>
-        ) : null}
+          <View style={styles.meta}>
+            {book.firstPublishYear ? (
+              <Text variant="caption" color="onSurfaceMuted">
+                {book.firstPublishYear}
+              </Text>
+            ) : null}
+            {book.subject ? (
+              <Text variant="caption" color="onSurfaceMuted" numberOfLines={1}>
+                {book.subject}
+              </Text>
+            ) : null}
+          </View>
+
+          {book.isbn ? (
+            <Text variant="micro" color="onSurfaceMuted">
+              ISBN {book.isbn}
+            </Text>
+          ) : null}
+        </View>
       </View>
 
       {alreadyOwned ? (
-        <View
-          accessible
-          accessibilityLabel="Already in your library"
-          style={[styles.action, styles.owned]}>
-          <Ionicons name="checkmark" size={20} color={Colors.onSuccessContainer} />
+        <View style={styles.owned}>
+          <Pill label="Already in your library" tone="success" dot />
         </View>
       ) : (
-        <PressableScale
-          accessibilityRole="button"
-          accessibilityLabel={`Add ${book.title} to your library`}
-          onPress={onAdd}
-          style={[styles.action, styles.add]}>
-          <Ionicons name="add" size={22} color={Colors.onPrimary} />
-        </PressableScale>
+        <Button label="Add to library" icon="add" onPress={onAdd} block />
       )}
     </Card>
   );
@@ -88,25 +70,22 @@ export function DiscoverResultCard({ book, alreadyOwned, onAdd }: DiscoverResult
 
 const styles = StyleSheet.create({
   card: {
+    gap: Spacing.xl,
+  },
+  row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.gutter,
+    gap: Spacing.xl,
   },
   details: {
     flex: 1,
-    gap: Spacing.xxs,
+    gap: Spacing.xs,
   },
-  action: {
-    width: ADD_BUTTON,
-    height: ADD_BUTTON,
-    borderRadius: Radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  add: {
-    backgroundColor: Colors.primary,
+  meta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
   },
   owned: {
-    backgroundColor: Colors.successContainer,
+    alignItems: 'flex-start',
   },
 });

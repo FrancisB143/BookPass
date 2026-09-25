@@ -6,11 +6,11 @@ import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { AppBar } from '@/components/app-bar';
 import { BookCard } from '@/components/books/book-card';
 import { BookTile } from '@/components/books/book-tile';
-import { FilterRail } from '@/components/books/filter-rail';
 import { Screen } from '@/components/screen';
 import { EmptyState, ErrorState, LoadingState } from '@/components/screen-states';
 import { Appear } from '@/components/ui/appear';
 import { Field } from '@/components/ui/field';
+import { Chip } from '@/components/ui/pill';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Text } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
@@ -126,18 +126,21 @@ export default function BooksScreen() {
               value={query}
             />
 
-            <FilterRail<Filter>
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: 'all', label: 'All', count: counts.all },
-                ...BOOK_STATUSES.map((status) => ({
-                  value: status,
-                  label: STATUS_LABEL[status],
-                  count: counts[status],
-                })),
-              ]}
-            />
+            <View style={styles.chips}>
+              <Chip
+                label={`All (${counts.all})`}
+                selected={filter === 'all'}
+                onPress={() => setFilter('all')}
+              />
+              {BOOK_STATUSES.map((status) => (
+                <Chip
+                  key={status}
+                  label={`${STATUS_LABEL[status]} (${counts[status]})`}
+                  selected={filter === status}
+                  onPress={() => setFilter(status)}
+                />
+              ))}
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -208,6 +211,11 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.xl,
     marginBottom: Spacing.xs,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
   },
   viewToggle: {
     width: 38,
