@@ -1,11 +1,6 @@
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  LinearTransition,
-  useReducedMotion,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { Duration, ENTER_RISE, staggerDelay } from '@/constants/motion';
 
@@ -34,12 +29,17 @@ export function Appear({ children, index = 0, style }: AppearProps) {
       });
 
   return (
-    <Animated.View
-      entering={entering}
-      // Rows glide to their new positions when a filter changes rather than
-      // snapping, so it stays clear that the list was re-ordered, not replaced.
-      layout={reduced ? undefined : LinearTransition.duration(Duration.base)}
-      style={style}>
+    // Deliberately no `layout` animation.
+    //
+    // Reanimated positions a view absolutely while a layout transition runs.
+    // Inside a FlatList that makes the cell measure as near-zero height, so the
+    // list underestimates its content, puts ListFooterComponent far too high,
+    // and the rows then render over it.
+    //
+    // `entering` is safe by contrast: it only touches opacity and transform,
+    // neither of which affects layout. Animating reorder inside a virtualised
+    // list needs `itemLayoutAnimation` on Animated.FlatList instead.
+    <Animated.View entering={entering} style={style}>
       {children}
     </Animated.View>
   );

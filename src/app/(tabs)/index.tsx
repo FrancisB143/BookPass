@@ -167,7 +167,9 @@ export default function BooksScreen() {
           )
         }
         ListFooterComponent={
-          visible.length > 0 ? (
+          // Only worth saying once the list is narrowed — unfiltered, the app
+          // bar already gives the total.
+          narrowed && visible.length > 0 ? (
             <Text variant="caption" color="onSurfaceMuted" style={styles.footer}>
               Showing {visible.length} of {books.length}
             </Text>
