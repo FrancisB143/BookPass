@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Chip } from '@/components/ui/pill';
 import { Card } from '@/components/ui/surface';
-import { Text } from '@/components/ui/text';
+import { Overline, Text } from '@/components/ui/text';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { BOOK_STATUSES, STATUS_LABEL, type BookDraft, type FieldErrors } from '@/types';
 
@@ -22,11 +22,25 @@ export type BookFormProps = {
   footer?: ReactNode;
 };
 
+/** A titled group of inputs. Grouping is what stops a form reading as a wall. */
+function Section({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Card style={styles.section}>
+      <Overline color="onSurfaceMuted">{label}</Overline>
+      {children}
+    </Card>
+  );
+}
+
 /**
  * The create and edit screens share this form.
  *
  * One component rather than two similar ones, because a field added to Create
- * and forgotten in Edit is exactly how a column quietly stops being editable.
+ * and forgotten in Edit is how a column quietly stops being editable.
+ *
+ * Fields are grouped into three named sections rather than stacked in one
+ * card. Eight inputs in a row is a wall; three short groups is a form you can
+ * see the end of.
  */
 export function BookForm({
   value,
@@ -45,24 +59,35 @@ export function BookForm({
 
   return (
     <View style={styles.form}>
+      {/* The preview sits beside the identity it previews, so typing a title
+          and watching the cover resolve happens in one glance. */}
       <Card style={styles.preview}>
         <BookCover
           title={value.title || 'Untitled'}
           author={value.author || 'Unknown author'}
           isbn={value.isbn.trim() || null}
           coverUrl={value.coverUrl ?? null}
-          width={104}
-          height={144}
+          width={84}
+          height={118}
           radius={Radius.sm}
         />
-        <Text variant="caption" color="onSurfaceMuted" style={styles.centred}>
-          {value.isbn.trim() || value.coverUrl
-            ? 'Cover art comes from Open Library.'
-            : 'Add an ISBN and the cover appears here.'}
-        </Text>
+
+        <View style={styles.previewText}>
+          <Text variant="titleBook" color="onSurface" numberOfLines={2}>
+            {value.title.trim() || 'Untitled book'}
+          </Text>
+          <Text variant="caption" color="onSurfaceMuted" numberOfLines={1}>
+            {value.author.trim() || 'No author yet'}
+          </Text>
+          <Text variant="caption" color="onSurfaceMuted" style={styles.previewHint}>
+            {value.isbn.trim() || value.coverUrl
+              ? 'Cover from Open Library.'
+              : 'Add an ISBN and the cover appears here.'}
+          </Text>
+        </View>
       </Card>
 
-      <Card style={styles.fields}>
+      <Section label="The book">
         <Field
           label="Title"
           hint="Required"
@@ -82,7 +107,9 @@ export function BookForm({
           value={value.author}
           error={errors.author}
         />
+      </Section>
 
+      <Section label="Catalogue details">
         <Field
           label="Genre"
           icon="pricetag-outline"
@@ -120,27 +147,6 @@ export function BookForm({
 
         <View style={styles.block}>
           <Text variant="labelLg" color="onSurface">
-            Status
-          </Text>
-          <View style={styles.statuses}>
-            {BOOK_STATUSES.map((status) => (
-              <Chip
-                key={status}
-                label={STATUS_LABEL[status]}
-                selected={value.status === status}
-                onPress={() => set('status', status)}
-              />
-            ))}
-          </View>
-          {errors.status ? (
-            <Text variant="caption" color="error">
-              {errors.status}
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={styles.block}>
-          <Text variant="labelLg" color="onSurface">
             Description
           </Text>
           <TextInput
@@ -159,7 +165,31 @@ export function BookForm({
             </Text>
           ) : null}
         </View>
-      </Card>
+      </Section>
+
+      <Section label="Availability">
+        <View style={styles.block}>
+          <View style={styles.statuses}>
+            {BOOK_STATUSES.map((status) => (
+              <Chip
+                key={status}
+                label={STATUS_LABEL[status]}
+                selected={value.status === status}
+                onPress={() => set('status', status)}
+              />
+            ))}
+          </View>
+          {errors.status ? (
+            <Text variant="caption" color="error">
+              {errors.status}
+            </Text>
+          ) : (
+            <Text variant="caption" color="onSurfaceMuted">
+              Whether this copy can be borrowed right now.
+            </Text>
+          )}
+        </View>
+      </Section>
 
       {footer}
 
@@ -172,6 +202,12 @@ export function BookForm({
         disabled={!canSubmit}
         block
       />
+
+      {!canSubmit ? (
+        <Text variant="caption" color="onSurfaceMuted" style={styles.requirement}>
+          A title and an author are required.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -181,13 +217,18 @@ const styles = StyleSheet.create({
     gap: Spacing.gutter,
   },
   preview: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xl,
+    gap: Spacing.gutter,
   },
-  centred: {
-    textAlign: 'center',
+  previewText: {
+    flex: 1,
+    gap: Spacing.xxs,
   },
-  fields: {
+  previewHint: {
+    marginTop: Spacing.md,
+  },
+  section: {
     gap: Spacing.x5,
   },
   pair: {
@@ -215,5 +256,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceVariant,
     ...Typography.body,
     color: Colors.onSurface,
+  },
+  requirement: {
+    textAlign: 'center',
   },
 });
