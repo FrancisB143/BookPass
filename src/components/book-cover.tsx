@@ -70,6 +70,9 @@ export function BookCover({
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           transition={180}
+          // Covers are re-shown constantly as you move between the list and a
+          // detail screen; caching to disk stops a refetch every time.
+          cachePolicy="memory-disk"
           onError={() => setFailed(true)}
         />
       ) : (

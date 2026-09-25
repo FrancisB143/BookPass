@@ -42,6 +42,127 @@ type SearchResponse = {
 export class OpenLibraryError extends Error {}
 
 /**
+ * Everything the book detail screen shows from Open Library.
+ *
+ * All of it is optional — Open Library's coverage is uneven, and a book with
+ * no ratings or no page count is normal rather than an error.
+ */
+export type OpenLibraryDetails = {
+  ratingAverage: number | null;
+  ratingCount: number | null;
+  pageCount: number | null;
+  editionCount: number | null;
+  firstPublishYear: number | null;
+  publishers: string[];
+  languages: string[];
+  subjects: string[];
+};
+
+type DetailsResponse = {
+  numFound?: number;
+  docs?: {
+    first_publish_year?: number;
+    number_of_pages_median?: number;
+    edition_count?: number;
+    ratings_average?: number;
+    ratings_count?: number;
+    publisher?: string[];
+    language?: string[];
+    subject?: string[];
+  }[];
+};
+
+const DETAIL_FIELDS = [
+  'first_publish_year',
+  'number_of_pages_median',
+  'edition_count',
+  'ratings_average',
+  'ratings_count',
+  'publisher',
+  'language',
+  'subject',
+].join(',');
+
+/** Open Library returns ISO 639-2 codes; these are the ones worth spelling out. */
+const LANGUAGE_NAMES: Record<string, string> = {
+  eng: 'English',
+  spa: 'Spanish',
+  fre: 'French',
+  ger: 'German',
+  ita: 'Italian',
+  por: 'Portuguese',
+  chi: 'Chinese',
+  jpn: 'Japanese',
+  kor: 'Korean',
+  rus: 'Russian',
+  ara: 'Arabic',
+  hin: 'Hindi',
+  tgl: 'Tagalog',
+};
+
+export function languageName(code: string): string {
+  return LANGUAGE_NAMES[code] ?? code.toUpperCase();
+}
+
+/**
+ * Looks a book up by ISBN for the detail screen.
+ *
+ * Resolves to `null` when Open Library has no record, which is not a failure —
+ * the screen simply has nothing extra to show. Only a network or server
+ * problem rejects.
+ */
+export async function lookupByIsbn(isbn: string): Promise<OpenLibraryDetails | null> {
+  const cleaned = isbn.replace(/[^0-9Xx]/g, '');
+  if (cleaned === '') return null;
+
+  const params = new URLSearchParams({
+    q: `isbn:${cleaned}`,
+    fields: DETAIL_FIELDS,
+    limit: '1',
+  });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${OPEN_LIBRARY_SEARCH_URL}?${params}`, {
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new OpenLibraryError(`Open Library returned HTTP ${response.status}.`);
+    }
+
+    const data = (await response.json()) as DetailsResponse;
+    const doc = data.docs?.[0];
+    if (!doc) return null;
+
+    return {
+      ratingAverage: doc.ratings_average ?? null,
+      ratingCount: doc.ratings_count ?? null,
+      pageCount: doc.number_of_pages_median ?? null,
+      editionCount: doc.edition_count ?? null,
+      firstPublishYear: doc.first_publish_year ?? null,
+      // Duplicates are common across editions.
+      publishers: [...new Set(doc.publisher ?? [])].slice(0, 3),
+      languages: [...new Set(doc.language ?? [])].slice(0, 4),
+      subjects: [...new Set(doc.subject ?? [])].slice(0, 8),
+    };
+  } catch (cause) {
+    if (cause instanceof OpenLibraryError) throw cause;
+
+    const aborted = cause instanceof Error && cause.name === 'AbortError';
+    throw new OpenLibraryError(
+      aborted
+        ? 'Open Library took too long to answer.'
+        : 'Could not reach Open Library.'
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
  * Prefers a 13-digit ISBN.
  *
  * Open Library returns every edition's ISBN in one flat array, mixing 10- and
