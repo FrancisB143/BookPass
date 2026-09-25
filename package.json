@@ -43,6 +43,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "figma:pull": "node scripts/figma-pull.mjs"
+    "figma:pull": "node scripts/figma-pull.mjs",
+    "test:api": "node scripts/test-api.mjs"
   }
 }
