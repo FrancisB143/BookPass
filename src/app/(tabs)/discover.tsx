@@ -9,33 +9,65 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/screen-states
 import { Appear } from '@/components/ui/appear';
 import { Field } from '@/components/ui/field';
 import { Pill } from '@/components/ui/pill';
-import { Text } from '@/components/ui/text';
+import { Overline, Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { useBooks } from '@/context/books-context';
 import { useAsync } from '@/hooks/use-async';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { searchOpenLibrary, type OpenLibraryBook } from '@/services/open-library';
+import {
+  fetchTrending,
+  searchOpenLibrary,
+  TRENDING_LABEL,
+  type OpenLibraryBook,
+} from '@/services/open-library';
+
+/** Which window the popular list ranks over. */
+const TRENDING_PERIOD = 'weekly';
 
 /**
  * Discover — the third-party API screen.
  *
- * Searches Open Library (https://openlibrary.org/dev/docs/api/search) and
- * hands any result straight to the Add Book form with its fields prefilled, so
- * a book found here becomes a real row in our own database in two taps.
+ * With nothing typed it shows what Open Library reports as most-read this
+ * week; typing searches instead. A search box over an empty screen asks the
+ * reader to already know what they want, which is the opposite of
+ * discovering — so there is always something to look at.
  *
- * This screen only ever reads from Open Library. Writing is the custom API's
- * job, and the handover happens through route params.
+ * Either way a result can be handed straight to the Add Book form with its
+ * fields prefilled, so a book found here becomes a row in our own database in
+ * two taps. This screen only ever reads from Open Library; writing is the
+ * custom API's job, and the handover happens through route params.
  */
 export default function DiscoverScreen() {
   const { books } = useBooks();
   const [query, setQuery] = useState('');
   const debounced = useDebouncedValue(query, 400);
 
-  const search = useCallback(() => searchOpenLibrary(debounced), [debounced]);
-  const results = useAsync(search);
+  const searching = debounced.trim() !== '';
 
-  /** ISBNs already in our library, so a duplicate can be pointed out. */
+  // One request either way — whichever the search box calls for.
+  const load = useCallback(
+    () => (searching ? searchOpenLibrary(debounced) : fetchTrending(TRENDING_PERIOD)),
+    [searching, debounced]
+  );
+  const results = useAsync(load);
+
   const ownedIsbns = new Set(books.map((book) => book.isbn).filter(Boolean) as string[]);
+  const ownedTitles = new Set(
+    books.map((book) => `${book.title}|${book.author}`.trim().toLowerCase())
+  );
+
+  /**
+   * Whether a result is already on the shelf.
+   *
+   * ISBN alone is not enough: a work has many editions, and Open Library's
+   * trending list happens to return a different one than the copy you own —
+   * "Atomic Habits" comes back as a UK edition whose ISBN will never match the
+   * one in the library. Title and author catch that case.
+   */
+  function isOwned(book: OpenLibraryBook): boolean {
+    if (book.isbn && ownedIsbns.has(book.isbn)) return true;
+    return ownedTitles.has(`${book.title}|${book.author}`.trim().toLowerCase());
+  }
 
   function addToLibrary(book: OpenLibraryBook) {
     router.push({
@@ -50,7 +82,10 @@ export default function DiscoverScreen() {
     });
   }
 
-  const idle = debounced.trim() === '';
+  const heading = searching ? 'Results' : `Popular ${TRENDING_LABEL[TRENDING_PERIOD].toLowerCase()}`;
+  const subheading = searching
+    ? `Matching “${debounced.trim()}”`
+    : 'The most-read books on Open Library right now';
 
   return (
     <Screen>
@@ -73,30 +108,46 @@ export default function DiscoverScreen() {
               placeholder="Search by title or author"
               value={query}
             />
+
             <View style={styles.credit}>
               <Pill label="Open Library API" tone="accent" dot />
               <Text variant="caption" color="onSurfaceMuted">
                 openlibrary.org
               </Text>
             </View>
+
+            {/* Naming the list matters more than usual here: the same rows mean
+                "most-read right now" or "matches your search" depending on the
+                box above, and nothing else on screen says which. */}
+            {results.status === 'success' && results.data.length > 0 ? (
+              <View style={styles.sectionHeading}>
+                <Overline color="onSurfaceMuted">{heading}</Overline>
+                <Text variant="caption" color="onSurfaceMuted">
+                  {subheading}
+                </Text>
+              </View>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
-          idle ? (
-            <EmptyState
-              icon="compass-outline"
-              title="Find a book"
-              message="Search millions of titles on Open Library, then add one to your own library with its details already filled in."
+          results.status === 'loading' ? (
+            <LoadingState
+              label={searching ? 'Searching Open Library…' : 'Loading popular books…'}
             />
-          ) : results.status === 'loading' ? (
-            <LoadingState label="Searching Open Library…" />
           ) : results.status === 'error' ? (
             <ErrorState message={results.error} onRetry={results.reload} />
-          ) : (
+          ) : searching ? (
             <EmptyState
               icon="search-outline"
               title="No results"
               message={`Open Library has nothing for “${debounced.trim()}”.`}
+            />
+          ) : (
+            <EmptyState
+              icon="compass-outline"
+              title="Nothing to show"
+              message="Open Library did not return any popular books just now. Try a search instead."
+              action={{ label: 'Try again', onPress: results.reload }}
             />
           )
         }
@@ -104,7 +155,7 @@ export default function DiscoverScreen() {
           <Appear index={index}>
             <DiscoverResultCard
               book={item}
-              alreadyOwned={Boolean(item.isbn && ownedIsbns.has(item.isbn))}
+              alreadyOwned={isOwned(item)}
               onAdd={() => addToLibrary(item)}
             />
           </Appear>
@@ -131,5 +182,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+  },
+  sectionHeading: {
+    gap: Spacing.xxs,
+    marginTop: Spacing.md,
   },
 });

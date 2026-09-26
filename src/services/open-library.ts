@@ -10,7 +10,13 @@
  * Nothing here touches the custom API — the two are kept apart on purpose.
  */
 
-import { OPEN_LIBRARY_COVERS_URL, OPEN_LIBRARY_SEARCH_URL, REQUEST_TIMEOUT_MS } from '@/config';
+import {
+  OPEN_LIBRARY_COVER_ID_URL,
+  OPEN_LIBRARY_COVERS_URL,
+  OPEN_LIBRARY_SEARCH_URL,
+  OPEN_LIBRARY_TRENDING_URL,
+  REQUEST_TIMEOUT_MS,
+} from '@/config';
 
 /** One search hit, reduced to the fields the app actually shows. */
 export type OpenLibraryBook = {
@@ -25,18 +31,26 @@ export type OpenLibraryBook = {
   coverUrl: string | null;
 };
 
-/** The subset of Open Library's response we read. It returns far more. */
+/**
+ * The subset of Open Library's response we read. It returns far more.
+ *
+ * Search and trending return the same document shape, so both are parsed by
+ * the same code. Trending nests them under `works` rather than `docs`.
+ */
+type OpenLibraryDoc = {
+  key?: string;
+  title?: string;
+  author_name?: string[];
+  first_publish_year?: number;
+  isbn?: string[];
+  subject?: string[];
+  cover_i?: number;
+};
+
 type SearchResponse = {
   numFound?: number;
-  docs?: {
-    key?: string;
-    title?: string;
-    author_name?: string[];
-    first_publish_year?: number;
-    isbn?: string[];
-    subject?: string[];
-    cover_i?: number;
-  }[];
+  docs?: OpenLibraryDoc[];
+  works?: OpenLibraryDoc[];
 };
 
 export class OpenLibraryError extends Error {}
@@ -175,11 +189,20 @@ function pickIsbn(isbns: string[] | undefined): string | null {
   return cleaned.find((value) => value.length === 13) ?? cleaned[0] ?? null;
 }
 
-function toBook(doc: NonNullable<SearchResponse['docs']>[number]): OpenLibraryBook | null {
+function toBook(doc: OpenLibraryDoc): OpenLibraryBook | null {
   // A hit with no title is unusable, and Open Library does return a few.
   if (!doc.title) return null;
 
   const isbn = pickIsbn(doc.isbn);
+
+  // Cover id first. A work lists dozens of editions' ISBNs and the one we pick
+  // frequently has no artwork, while the cover id points at the edition Open
+  // Library itself displays.
+  const coverUrl = doc.cover_i
+    ? `${OPEN_LIBRARY_COVER_ID_URL}/${doc.cover_i}-M.jpg?default=false`
+    : isbn
+      ? `${OPEN_LIBRARY_COVERS_URL}/${isbn}-M.jpg?default=false`
+      : null;
 
   return {
     key: doc.key ?? doc.title,
@@ -188,8 +211,68 @@ function toBook(doc: NonNullable<SearchResponse['docs']>[number]): OpenLibraryBo
     firstPublishYear: doc.first_publish_year ?? null,
     isbn,
     subject: doc.subject?.[0] ?? null,
-    coverUrl: isbn ? `${OPEN_LIBRARY_COVERS_URL}/${isbn}-M.jpg?default=false` : null,
+    coverUrl,
   };
+}
+
+/** How far back Open Library counts reads when ranking trending works. */
+export type TrendingPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export const TRENDING_LABEL: Record<TrendingPeriod, string> = {
+  daily: 'Today',
+  weekly: 'This week',
+  monthly: 'This month',
+  yearly: 'This year',
+};
+
+/**
+ * The most-read works on Open Library right now.
+ *
+ * This is what Discover shows before anything is typed: an empty screen with
+ * a search box asks the reader to already know what they want, which is the
+ * opposite of discovering.
+ *
+ * Trending returns the same document shape as search, just nested under
+ * `works`, so both go through `toBook`.
+ */
+export async function fetchTrending(
+  period: TrendingPeriod = 'weekly',
+  limit = 20
+): Promise<OpenLibraryBook[]> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    fields: 'key,title,author_name,first_publish_year,isbn,subject,cover_i',
+  });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${OPEN_LIBRARY_TRENDING_URL}/${period}.json?${params}`, {
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new OpenLibraryError(`Open Library returned HTTP ${response.status}.`);
+    }
+
+    const data = (await response.json()) as SearchResponse;
+
+    return (data.works ?? data.docs ?? [])
+      .map(toBook)
+      .filter((book): book is OpenLibraryBook => book !== null);
+  } catch (cause) {
+    if (cause instanceof OpenLibraryError) throw cause;
+
+    const aborted = cause instanceof Error && cause.name === 'AbortError';
+    throw new OpenLibraryError(
+      aborted
+        ? 'Open Library took too long to answer.'
+        : 'Could not reach Open Library. Check your internet connection.'
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**

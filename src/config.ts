@@ -43,5 +43,17 @@ export const OPEN_LIBRARY_SEARCH_URL = 'https://openlibrary.org/search.json';
 /** Open Library's cover images, addressed by ISBN. */
 export const OPEN_LIBRARY_COVERS_URL = 'https://covers.openlibrary.org/b/isbn';
 
+/**
+ * The same images addressed by Open Library's own cover id.
+ *
+ * Preferred over the ISBN form wherever a cover id is available: a search hit
+ * carries dozens of editions' ISBNs and the one we happen to pick often has no
+ * artwork, while the cover id points at the edition Open Library itself shows.
+ */
+export const OPEN_LIBRARY_COVER_ID_URL = 'https://covers.openlibrary.org/b/id';
+
+/** Most-read works, refreshed by Open Library on a rolling window. */
+export const OPEN_LIBRARY_TRENDING_URL = 'https://openlibrary.org/trending';
+
 /** How long a request may hang before the app gives up and says so. */
 export const REQUEST_TIMEOUT_MS = 12000;
